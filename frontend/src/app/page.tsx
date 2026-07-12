@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
@@ -9,12 +11,12 @@ export default function Home() {
           Practice interview responses on camera and get AI feedback on
           content, delivery, and body language.
         </p>
-        <button
-          type="button"
+        <Link
+          href="/practice/1"
           className="rounded-full bg-black px-6 py-3 text-sm font-medium text-white transition hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
         >
           Start Practicing
-        </button>
+        </Link>
       </main>
     </div>
   );

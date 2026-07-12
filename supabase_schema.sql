@@ -66,3 +66,11 @@ create policy "Users can read their own recordings"
     bucket_id = 'recordings'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- Phase 1/2 addition: cap recording length (bounds Whisper transcription
+-- cost per session) and enforce a storage bucket size ceiling as a backstop.
+alter table sessions
+  add column duration_seconds int not null
+  check (duration_seconds > 0 and duration_seconds <= 180);
+
+update storage.buckets set file_size_limit = 104857600 where id = 'recordings';

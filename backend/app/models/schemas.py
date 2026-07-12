@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 from pydantic import BaseModel
 
 
@@ -8,11 +8,18 @@ class Question(BaseModel):
     text: str
 
 
+class SessionCreate(BaseModel):
+    question_id: int
+    video_path: str
+    duration_seconds: int
+
+
 class SessionOut(BaseModel):
     id: str
     user_id: str
     question_id: int
     video_path: str
+    duration_seconds: int
     status: Literal["pending", "processing", "complete", "failed"]
     created_at: str
 
@@ -39,8 +46,8 @@ class FeedbackOut(BaseModel):
     session_id: str
     transcript: str
     delivery: DeliveryStats
-    content: ContentFeedback
-    body_language: BodyLanguageStats
+    content: Optional[ContentFeedback] = None
+    body_language: Optional[BodyLanguageStats] = None
     created_at: str
 
 
