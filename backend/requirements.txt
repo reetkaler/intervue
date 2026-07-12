@@ -1,0 +1,13 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic==2.10.4
+pydantic-settings==2.7.1
+supabase==2.11.0
+python-dotenv==1.0.1
+
+# Added in later build phases (see README):
+# openai==1.59.6            # Phase 2: Whisper transcription
+# anthropic==0.42.0         # Phase 3: Claude content scoring
+# mediapipe==0.10.20        # Phase 4: body language analysis
+# opencv-python-headless==4.10.0.84

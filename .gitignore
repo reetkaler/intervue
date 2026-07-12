@@ -1,0 +1,27 @@
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc
+
+# Env files
+.env
+.env.local
+frontend/.env.local
+backend/.env
+
+# Local-only docs
+docs/PRD.md
+
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
