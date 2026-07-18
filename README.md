@@ -5,9 +5,25 @@ content quality, delivery, and body language.
 
 ## Status
 
-Repo scaffold only. Recording, transcription, scoring, and body-language
-analysis are not implemented yet — see the `app/routers/*.py` docstrings
-in the backend for what's stubbed vs. live.
+Core pipeline is fully built and working end-to-end:
+
+- **Recording + upload** — browser records via MediaRecorder, uploads
+  directly to Supabase Storage, with live face-detection and noise-level
+  indicators shown while recording.
+- **Transcription** — OpenAI Whisper, with hallucination detection
+  (`no_speech_prob`/`avg_logprob`/`compression_ratio`) and word-count-based
+  delivery stats (words/min, filler word count).
+- **Content scoring** — Claude Sonnet 5 scores the transcript against the
+  interview question (structured JSON output).
+- **Body-language analysis** — MediaPipe FaceLandmarker (eye contact,
+  expression) and HandLandmarker (gesture activity).
+
+Cost/abuse guards throughout: a 3-minute recording cap, a 15
+sessions/user/day quota, and an idempotency guard so retries can't
+double-bill a recording against the paid Whisper/Claude APIs.
+
+Not yet built: question-selection UI (hardcoded to question 1) and general
+styling/UX polish.
 
 ## Structure
 
@@ -47,8 +63,9 @@ cp .env.example .env         # fill in Supabase + OpenAI + Anthropic keys
 
 ## Notes
 
-- `backend/requirements.txt` is intentionally minimal right now; the Whisper,
-  Claude, and MediaPipe dependencies are commented in and added when those
-  pipeline phases are built.
 - Backend uses Python 3.11 (via Homebrew) rather than the system Python 3.9
   for better MediaPipe/FastAPI compatibility.
+- MediaPipe model assets (`.task`/`.tflite` files) are vendored in
+  `backend/app/assets/` and `frontend/public/models/` rather than fetched
+  at runtime, so builds don't depend on Google's model storage being
+  reachable.
