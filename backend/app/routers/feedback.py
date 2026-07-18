@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.data.questions import QUESTIONS
 from app.models.schemas import BodyLanguageStats, ContentFeedback, FeedbackOut
 from app.services.auth import get_current_user_id
+from app.services.body_language import analyze_body_language
 from app.services.content_scoring import score_content
 from app.services.delivery import compute_delivery_stats
 from app.services.supabase_client import admin_client
@@ -35,11 +36,7 @@ def _to_feedback_out(row: dict) -> FeedbackOut:
 
 @router.post("/{session_id}/generate", response_model=FeedbackOut)
 def generate_feedback(session_id: str, user_id: str = Depends(get_current_user_id)):
-    """Run the full analysis pipeline: transcription -> content scoring -> body language.
-
-    Currently implements phases 2-3 (transcription, delivery stats, content
-    scoring). Body language remains unset until phase 4.
-    """
+    """Run the full analysis pipeline: transcription -> content scoring -> body language."""
     session = _get_owned_session(session_id, user_id)
 
     if session["status"] != "pending":
@@ -60,6 +57,8 @@ def generate_feedback(session_id: str, user_id: str = Depends(get_current_user_i
         question_text = question["text"] if question else "Unknown interview question"
         content = score_content(question_text, transcript)
 
+        body_language = analyze_body_language(video_bytes, filename=session["video_path"])
+
         feedback_resp = (
             admin_client.table("feedback")
             .upsert(
@@ -68,6 +67,7 @@ def generate_feedback(session_id: str, user_id: str = Depends(get_current_user_i
                     "transcript": transcript,
                     "delivery": delivery.model_dump(),
                     "content": content.model_dump(),
+                    "body_language": body_language.model_dump(),
                 }
             )
             .execute()

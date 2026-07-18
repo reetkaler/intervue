@@ -18,7 +18,20 @@ type FeedbackResult = {
     improvements: string[];
     summary: string;
   } | null;
+  body_language: {
+    face_detected: boolean;
+    eye_contact_percent: number;
+    positive_expression_percent: number;
+    hands_visible_percent: number;
+    gesture_activity_score: number;
+  } | null;
 };
+
+function gestureActivityLabel(score: number): string {
+  if (score < 15) return "minimal gesturing";
+  if (score < 45) return "natural, moderate gesturing";
+  return "very active gesturing";
+}
 
 function pickSupportedMimeType(): string {
   const candidates = [
@@ -38,6 +51,7 @@ export default function PracticePage() {
   const [secondsLeft, setSecondsLeft] = useState(MAX_DURATION_SECONDS);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<FeedbackResult | null>(null);
+  const [questionText, setQuestionText] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -62,6 +76,18 @@ export default function PracticePage() {
         }
       }
       setStatus("ready");
+    })();
+
+    (async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/questions/${questionId}`);
+        if (res.ok) {
+          const question = await res.json();
+          setQuestionText(question.text);
+        }
+      } catch {
+        // Non-fatal — the page still works without the question text shown.
+      }
     })();
 
     return () => {
@@ -91,11 +117,14 @@ export default function PracticePage() {
 
       chunksRef.current = [];
       // Whisper caps uploads at 25MB; at the 180s max recording length this
-      // bitrate keeps worst-case file size well under that (~15MB).
+      // bitrate keeps worst-case file size well under that (~11MB). Audio is
+      // prioritized over video quality since transcription accuracy is the
+      // core value here — video only needs to be good enough for MediaPipe's
+      // landmark detection, not for human viewing.
       const recorder = new MediaRecorder(stream, {
         mimeType,
-        videoBitsPerSecond: 600_000,
-        audioBitsPerSecond: 64_000,
+        videoBitsPerSecond: 350_000,
+        audioBitsPerSecond: 160_000,
       });
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
@@ -170,8 +199,8 @@ export default function PracticePage() {
 
   return (
     <div className="flex flex-col flex-1 items-center justify-center gap-6 bg-zinc-50 px-6 py-12 dark:bg-black">
-      <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
-        Question {questionId}
+      <h1 className="max-w-md text-center text-2xl font-semibold text-black dark:text-zinc-50">
+        {questionText ?? `Question ${questionId}`}
       </h1>
 
       <video
@@ -253,6 +282,32 @@ export default function PracticePage() {
                   <li key={i}>{s}</li>
                 ))}
               </ul>
+            </div>
+          )}
+          {result.body_language && (
+            <div>
+              <h2 className="font-medium text-black dark:text-zinc-50">
+                Body Language
+              </h2>
+              {result.body_language.face_detected ? (
+                <ul className="list-disc pl-5 text-sm text-zinc-600 dark:text-zinc-400">
+                  <li>Facing the camera {result.body_language.eye_contact_percent}% of the time</li>
+                  <li>
+                    Positive/engaged expression {result.body_language.positive_expression_percent}%
+                    of the time
+                  </li>
+                  <li>
+                    Hands visible {result.body_language.hands_visible_percent}% of the time
+                    {result.body_language.hands_visible_percent > 0 &&
+                      ` — ${gestureActivityLabel(result.body_language.gesture_activity_score)}`}
+                  </li>
+                </ul>
+              ) : (
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  No face reliably detected in the recording — point the camera at
+                  your face for this analysis to work.
+                </p>
+              )}
             </div>
           )}
         </div>

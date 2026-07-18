@@ -37,9 +37,11 @@ class ContentFeedback(BaseModel):
 
 
 class BodyLanguageStats(BaseModel):
-    eye_contact_percent: float
-    movement_score: float
     face_detected: bool
+    eye_contact_percent: float
+    positive_expression_percent: float
+    hands_visible_percent: float
+    gesture_activity_score: float
 
 
 class FeedbackOut(BaseModel):

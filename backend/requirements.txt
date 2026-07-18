@@ -7,7 +7,5 @@ supabase==2.11.0
 python-dotenv==1.0.1
 openai==1.59.6
 anthropic==0.116.0
-
-# Added in later build phases (see README):
-# mediapipe==0.10.20        # Phase 4: body language analysis
-# opencv-python-headless==4.10.0.84
+mediapipe==0.10.35
+opencv-contrib-python==5.0.0.93  # mediapipe's own cv2 dependency; declared explicitly since we import cv2 directly too
