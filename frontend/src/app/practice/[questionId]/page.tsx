@@ -2,12 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
 import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api";
 
 const MAX_DURATION_SECONDS = 180;
+const DETECTION_INTERVAL_MS = 500; // ~2x/sec, throttled to keep CPU usage low
+
+// RMS thresholds are approximate/mic-gain-dependent starting points — tune
+// after real-world testing rather than treating these as precise.
+const NOISE_QUIET_THRESHOLD = 0.02;
+const NOISE_MODERATE_THRESHOLD = 0.06;
 
 type Status = "loading" | "ready" | "recording" | "processing" | "done" | "error";
+type NoiseLevel = "quiet" | "moderate" | "noisy";
 
 type FeedbackResult = {
   transcript: string;
@@ -52,6 +60,8 @@ export default function PracticePage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<FeedbackResult | null>(null);
   const [questionText, setQuestionText] = useState<string | null>(null);
+  const [faceDetected, setFaceDetected] = useState<boolean | null>(null);
+  const [noiseLevel, setNoiseLevel] = useState<NoiseLevel | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -61,6 +71,13 @@ export default function PracticePage() {
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mimeTypeRef = useRef<string>("");
+
+  const faceDetectorRef = useRef<FaceDetector | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+  const lastDetectionRef = useRef<number>(0);
+  const detectionLoopRef = useRef<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -75,7 +92,47 @@ export default function PracticePage() {
           return;
         }
       }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: true,
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+
+        const audioContext = new AudioContext();
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        audioContext.createMediaStreamSource(stream).connect(analyser);
+        audioContextRef.current = audioContext;
+        analyserRef.current = analyser;
+        audioDataRef.current = new Uint8Array(new ArrayBuffer(analyser.fftSize));
+
+        detectionLoopRef.current = requestAnimationFrame(runDetectionLoop);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        setStatus("error");
+        return;
+      }
+
       setStatus("ready");
+    })();
+
+    (async () => {
+      try {
+        const filesetResolver = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"
+        );
+        faceDetectorRef.current = await FaceDetector.createFromOptions(filesetResolver, {
+          baseOptions: { modelAssetPath: "/models/blaze_face_short_range.tflite" },
+          runningMode: "VIDEO",
+        });
+      } catch {
+        // Non-fatal — recording still works without the live face-detection badge.
+      }
     })();
 
     (async () => {
@@ -91,23 +148,56 @@ export default function PracticePage() {
     })();
 
     return () => {
+      stopLiveIndicators();
       streamRef.current?.getTracks().forEach((track) => track.stop());
       if (autoStopRef.current) clearTimeout(autoStopRef.current);
       if (tickRef.current) clearInterval(tickRef.current);
     };
   }, []);
 
-  async function startRecording() {
+  function runDetectionLoop(timestamp: number) {
+    if (timestamp - lastDetectionRef.current >= DETECTION_INTERVAL_MS) {
+      lastDetectionRef.current = timestamp;
+
+      if (faceDetectorRef.current && videoRef.current && videoRef.current.readyState >= 2) {
+        const result = faceDetectorRef.current.detectForVideo(videoRef.current, timestamp);
+        setFaceDetected(result.detections.length > 0);
+      }
+
+      if (analyserRef.current && audioDataRef.current) {
+        analyserRef.current.getByteTimeDomainData(audioDataRef.current);
+        let sumSquares = 0;
+        for (const sample of audioDataRef.current) {
+          const normalized = (sample - 128) / 128;
+          sumSquares += normalized * normalized;
+        }
+        const rms = Math.sqrt(sumSquares / audioDataRef.current.length);
+        setNoiseLevel(
+          rms < NOISE_QUIET_THRESHOLD
+            ? "quiet"
+            : rms < NOISE_MODERATE_THRESHOLD
+              ? "moderate"
+              : "noisy"
+        );
+      }
+    }
+    detectionLoopRef.current = requestAnimationFrame(runDetectionLoop);
+  }
+
+  function stopLiveIndicators() {
+    if (detectionLoopRef.current !== null) {
+      cancelAnimationFrame(detectionLoopRef.current);
+      detectionLoopRef.current = null;
+    }
+    audioContextRef.current?.close();
+    audioContextRef.current = null;
+  }
+
+  function startRecording() {
     setError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: true,
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      const stream = streamRef.current;
+      if (!stream) throw new Error("Camera/mic stream isn't ready yet");
 
       const mimeType = pickSupportedMimeType();
       if (!mimeType) {
@@ -150,6 +240,7 @@ export default function PracticePage() {
   function stopRecording() {
     if (autoStopRef.current) clearTimeout(autoStopRef.current);
     if (tickRef.current) clearInterval(tickRef.current);
+    stopLiveIndicators();
     recorderRef.current?.stop();
     streamRef.current?.getTracks().forEach((track) => track.stop());
   }
@@ -197,6 +288,8 @@ export default function PracticePage() {
     }
   }
 
+  const showLiveIndicators = status === "ready" || status === "recording";
+
   return (
     <div className="flex flex-col flex-1 items-center justify-center gap-6 bg-zinc-50 px-6 py-12 dark:bg-black">
       <h1 className="max-w-md text-center text-2xl font-semibold text-black dark:text-zinc-50">
@@ -209,6 +302,27 @@ export default function PracticePage() {
         muted
         className="w-full max-w-md rounded-lg bg-zinc-900"
       />
+
+      {showLiveIndicators && (
+        <div className="flex gap-2 text-xs">
+          <span className="rounded-full bg-zinc-200 px-3 py-1 dark:bg-zinc-800">
+            {faceDetected === null
+              ? "⏳ Loading face detection…"
+              : faceDetected
+                ? "🟢 Face detected"
+                : "🟠 No face detected — center yourself in frame"}
+          </span>
+          <span className="rounded-full bg-zinc-200 px-3 py-1 dark:bg-zinc-800">
+            {noiseLevel === null
+              ? "⏳ Checking noise level…"
+              : noiseLevel === "quiet"
+                ? "🟢 Quiet"
+                : noiseLevel === "moderate"
+                  ? "🟡 Somewhat noisy"
+                  : "🔴 Too noisy — find a quieter spot"}
+          </span>
+        </div>
+      )}
 
       {status === "ready" && (
         <button
