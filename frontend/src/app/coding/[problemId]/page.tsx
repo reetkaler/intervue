@@ -4,16 +4,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Editor, { loader } from "@monaco-editor/react";
-import * as monaco from "monaco-editor";
 import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api";
-
-// Use the bundled npm package instead of fetching Monaco's AMD loader from a
-// CDN — keeps this page's global loader state consistent with the
-// /interview sub-page (which combines Monaco with MediaPipe and needs this
-// to avoid an AMD `define()` collision), so client-side navigation between
-// the two never leaves stale loader state behind.
-loader.config({ monaco });
+import { CaptchaChallenge } from "@/components/CaptchaChallenge";
 
 type CodingProblem = {
   id: number;
@@ -44,14 +37,41 @@ export default function CodingProblemPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<SubmissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [needsCaptcha, setNeedsCaptcha] = useState(false);
+  const [monacoReady, setMonacoReady] = useState(false);
+
+  async function handleCaptchaVerified(token: string) {
+    const { error: signInError } = await supabase.auth.signInAnonymously({
+      options: { captchaToken: token },
+    });
+    if (signInError) {
+      setError(signInError.message);
+      return;
+    }
+    setNeedsCaptcha(false);
+  }
 
   useEffect(() => {
+    // Dynamically import monaco-editor's npm package (instead of a static
+    // top-level import) so it's never evaluated during server-side
+    // rendering, where it crashes on `window is not defined`. Configuring
+    // the bundled package (instead of letting @monaco-editor/react fetch
+    // its AMD loader from a CDN) keeps this page's loader state consistent
+    // with the /interview sub-page, which combines Monaco with MediaPipe
+    // and needs this to avoid an AMD `define()` collision.
+    import("monaco-editor").then((monaco) => {
+      loader.config({ monaco });
+      setMonacoReady(true);
+    });
+
     (async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        await supabase.auth.signInAnonymously();
+        // Gate the actual sign-up moment behind a captcha — this only shows
+        // once per browser (an existing session skips straight through).
+        setNeedsCaptcha(true);
       }
     })();
 
@@ -87,6 +107,10 @@ export default function CodingProblemPage() {
     }
   }
 
+  if (needsCaptcha) {
+    return <CaptchaChallenge onVerified={handleCaptchaVerified} />;
+  }
+
   if (error && !problem) {
     return (
       <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 dark:bg-black">
@@ -95,7 +119,7 @@ export default function CodingProblemPage() {
     );
   }
 
-  if (!problem) {
+  if (!problem || !monacoReady) {
     return (
       <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 dark:bg-black">
         <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>

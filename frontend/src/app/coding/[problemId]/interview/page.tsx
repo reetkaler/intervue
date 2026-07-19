@@ -3,26 +3,26 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Editor, { loader } from "@monaco-editor/react";
-import * as monaco from "monaco-editor";
 import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
 import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api";
 import { silenceMediapipeStartupLogs } from "@/lib/suppressMediapipeNoise";
 import { NoiseFloorTracker, type NoiseLevel } from "@/lib/noiseFloor";
+import { CaptchaChallenge } from "@/components/CaptchaChallenge";
 
-// Use Monaco's bundled npm package instead of letting @monaco-editor/react
-// fetch its AMD loader script from a CDN — that loader and MediaPipe's WASM
-// glue code both try to register themselves via a global `define()`, which
-// collides ("Can only have one anonymous define call per script file") now
-// that this page combines both, unlike the plain editor page (Monaco alone)
-// or the practice page (MediaPipe alone).
-loader.config({ monaco });
 silenceMediapipeStartupLogs();
 
 const MAX_DURATION_SECONDS = 360; // 6 minutes — enough to solve + narrate a problem
 const DETECTION_INTERVAL_MS = 500;
 
-type Status = "loading" | "ready" | "recording" | "processing" | "done" | "error";
+type Status =
+  | "loading"
+  | "needs-captcha"
+  | "ready"
+  | "recording"
+  | "processing"
+  | "done"
+  | "error";
 
 type CodingProblem = {
   id: number;
@@ -67,6 +67,7 @@ export default function CodingInterviewPage() {
   const [result, setResult] = useState<CodingFeedbackResult | null>(null);
   const [faceDetected, setFaceDetected] = useState<boolean | null>(null);
   const [noiseLevel, setNoiseLevel] = useState<NoiseLevel | null>(null);
+  const [monacoReady, setMonacoReady] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -86,46 +87,71 @@ export default function CodingInterviewPage() {
   const detectionLoopRef = useRef<number | null>(null);
   const noiseFloorRef = useRef(new NoiseFloorTracker());
 
+  async function proceedAfterAuth() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: true,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      const audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      audioContext.createMediaStreamSource(stream).connect(analyser);
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+      audioDataRef.current = new Uint8Array(new ArrayBuffer(analyser.fftSize));
+
+      detectionLoopRef.current = requestAnimationFrame(runDetectionLoop);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setStatus("error");
+      return;
+    }
+
+    setStatus("ready");
+  }
+
+  async function handleCaptchaVerified(token: string) {
+    const { error: signInError } = await supabase.auth.signInAnonymously({
+      options: { captchaToken: token },
+    });
+    if (signInError) {
+      setError(signInError.message);
+      setStatus("error");
+      return;
+    }
+    await proceedAfterAuth();
+  }
+
   useEffect(() => {
+    // Dynamically import monaco-editor's npm package (instead of a static
+    // top-level import) so it's never evaluated during server-side
+    // rendering, where it crashes on `window is not defined`. Configuring
+    // the bundled package (instead of letting @monaco-editor/react fetch
+    // its AMD loader from a CDN) avoids an AMD `define()` collision with
+    // MediaPipe's WASM glue code, which this page also loads.
+    import("monaco-editor").then((monaco) => {
+      loader.config({ monaco });
+      setMonacoReady(true);
+    });
+
     (async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        const { error: signInError } = await supabase.auth.signInAnonymously();
-        if (signInError) {
-          setError(signInError.message);
-          setStatus("error");
-          return;
-        }
-      }
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: true,
-        });
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-
-        const audioContext = new AudioContext();
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 2048;
-        audioContext.createMediaStreamSource(stream).connect(analyser);
-        audioContextRef.current = audioContext;
-        analyserRef.current = analyser;
-        audioDataRef.current = new Uint8Array(new ArrayBuffer(analyser.fftSize));
-
-        detectionLoopRef.current = requestAnimationFrame(runDetectionLoop);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-        setStatus("error");
+        // Gate the actual sign-up moment behind a captcha — this only shows
+        // once per browser (an existing session skips straight through).
+        setStatus("needs-captcha");
         return;
       }
 
-      setStatus("ready");
+      await proceedAfterAuth();
     })();
 
     (async () => {
@@ -295,7 +321,11 @@ export default function CodingInterviewPage() {
 
   const showLiveIndicators = status === "ready" || status === "recording";
 
-  if (!problem) {
+  if (status === "needs-captcha") {
+    return <CaptchaChallenge onVerified={handleCaptchaVerified} />;
+  }
+
+  if (!problem || !monacoReady) {
     return (
       <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 dark:bg-black">
         {error ? (

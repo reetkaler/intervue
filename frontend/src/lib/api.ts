@@ -19,8 +19,17 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
 
   const res = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
   if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`${res.status} ${res.statusText}: ${detail}`);
+    const text = await res.text();
+    // FastAPI's standard error shape is {"detail": "..."} — show just that
+    // message instead of the raw JSON blob when possible.
+    let detail: string | null = null;
+    try {
+      const parsed = JSON.parse(text);
+      if (typeof parsed.detail === "string") detail = parsed.detail;
+    } catch {
+      // Not JSON — fall through to the raw text below.
+    }
+    throw new Error(detail ?? text ?? `${res.status} ${res.statusText}`);
   }
   return res.json();
 }

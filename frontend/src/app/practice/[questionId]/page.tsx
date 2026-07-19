@@ -7,13 +7,21 @@ import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api";
 import { silenceMediapipeStartupLogs } from "@/lib/suppressMediapipeNoise";
 import { NoiseFloorTracker, type NoiseLevel } from "@/lib/noiseFloor";
+import { CaptchaChallenge } from "@/components/CaptchaChallenge";
 
 silenceMediapipeStartupLogs();
 
 const MAX_DURATION_SECONDS = 180;
 const DETECTION_INTERVAL_MS = 500; // ~2x/sec, throttled to keep CPU usage low
 
-type Status = "loading" | "ready" | "recording" | "processing" | "done" | "error";
+type Status =
+  | "loading"
+  | "needs-captcha"
+  | "ready"
+  | "recording"
+  | "processing"
+  | "done"
+  | "error";
 
 type FeedbackResult = {
   transcript: string;
@@ -78,46 +86,60 @@ export default function PracticePage() {
   const detectionLoopRef = useRef<number | null>(null);
   const noiseFloorRef = useRef(new NoiseFloorTracker());
 
+  async function proceedAfterAuth() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: true,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      const audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      audioContext.createMediaStreamSource(stream).connect(analyser);
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+      audioDataRef.current = new Uint8Array(new ArrayBuffer(analyser.fftSize));
+
+      detectionLoopRef.current = requestAnimationFrame(runDetectionLoop);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setStatus("error");
+      return;
+    }
+
+    setStatus("ready");
+  }
+
+  async function handleCaptchaVerified(token: string) {
+    const { error: signInError } = await supabase.auth.signInAnonymously({
+      options: { captchaToken: token },
+    });
+    if (signInError) {
+      setError(signInError.message);
+      setStatus("error");
+      return;
+    }
+    await proceedAfterAuth();
+  }
+
   useEffect(() => {
     (async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        const { error: signInError } = await supabase.auth.signInAnonymously();
-        if (signInError) {
-          setError(signInError.message);
-          setStatus("error");
-          return;
-        }
-      }
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: true,
-        });
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-
-        const audioContext = new AudioContext();
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 2048;
-        audioContext.createMediaStreamSource(stream).connect(analyser);
-        audioContextRef.current = audioContext;
-        analyserRef.current = analyser;
-        audioDataRef.current = new Uint8Array(new ArrayBuffer(analyser.fftSize));
-
-        detectionLoopRef.current = requestAnimationFrame(runDetectionLoop);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-        setStatus("error");
+        // Gate the actual sign-up moment behind a captcha — this only shows
+        // once per browser (an existing session skips straight through).
+        setStatus("needs-captcha");
         return;
       }
 
-      setStatus("ready");
+      await proceedAfterAuth();
     })();
 
     (async () => {
@@ -288,6 +310,8 @@ export default function PracticePage() {
       <h1 className="max-w-md text-center text-2xl font-semibold text-black dark:text-zinc-50">
         {questionText ?? `Question ${questionId}`}
       </h1>
+
+      {status === "needs-captcha" && <CaptchaChallenge onVerified={handleCaptchaVerified} />}
 
       <video
         ref={videoRef}
