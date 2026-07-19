@@ -74,3 +74,49 @@ alter table sessions
   check (duration_seconds > 0 and duration_seconds <= 180);
 
 update storage.buckets set file_size_limit = 104857600 where id = 'recordings';
+
+-- Coding-narration feature: record yourself explaining a coding-problem
+-- solution while solving it. Audio-only (no video path/body-language here),
+-- reuses the same private `recordings` bucket + per-user-folder policies.
+create table if not exists coding_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  problem_id int not null,
+  audio_path text not null,
+  duration_seconds int not null check (duration_seconds > 0 and duration_seconds <= 360),
+  code text not null,
+  status text not null default 'pending'
+    check (status in ('pending', 'processing', 'complete', 'failed')),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists coding_sessions_user_id_idx on coding_sessions (user_id);
+
+create table if not exists coding_feedback (
+  coding_session_id uuid primary key references coding_sessions (id) on delete cascade,
+  transcript text not null default '',
+  test_results jsonb not null default '{}'::jsonb,
+  score_feedback jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table coding_sessions enable row level security;
+alter table coding_feedback enable row level security;
+
+create policy "Users can view their own coding sessions"
+  on coding_sessions for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own coding sessions"
+  on coding_sessions for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can view feedback for their own coding sessions"
+  on coding_feedback for select
+  using (
+    exists (
+      select 1 from coding_sessions
+      where coding_sessions.id = coding_feedback.coding_session_id
+        and coding_sessions.user_id = auth.uid()
+    )
+  );

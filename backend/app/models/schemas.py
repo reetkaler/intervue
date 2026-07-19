@@ -56,3 +56,60 @@ class FeedbackOut(BaseModel):
 class StatsOut(BaseModel):
     total_users: int
     total_sessions_completed: int
+
+
+class CodingProblem(BaseModel):
+    id: int
+    title: str
+    description: str
+    starter_code: str
+
+
+class CodeSubmission(BaseModel):
+    code: str
+
+
+class TestCaseResult(BaseModel):
+    call: str
+    passed: bool
+    status: str
+    stdout: str
+    stderr: str
+
+
+class SubmissionResult(BaseModel):
+    all_passed: bool
+    test_results: list[TestCaseResult]
+
+
+class CodingSessionCreate(BaseModel):
+    problem_id: int
+    audio_path: str
+    duration_seconds: int
+    code: str
+
+
+class CodingSessionOut(BaseModel):
+    id: str
+    user_id: str
+    problem_id: int
+    audio_path: str
+    duration_seconds: int
+    code: str
+    status: Literal["pending", "processing", "complete", "failed"]
+    created_at: str
+
+
+class CodingFeedback(BaseModel):
+    score: int
+    strengths: list[str]
+    improvements: list[str]
+    summary: str
+
+
+class CodingFeedbackOut(BaseModel):
+    coding_session_id: str
+    transcript: str
+    test_results: SubmissionResult
+    score_feedback: CodingFeedback
+    created_at: str

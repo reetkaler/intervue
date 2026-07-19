@@ -5,17 +5,15 @@ import { useParams } from "next/navigation";
 import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
 import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api";
+import { silenceMediapipeStartupLogs } from "@/lib/suppressMediapipeNoise";
+import { NoiseFloorTracker, type NoiseLevel } from "@/lib/noiseFloor";
+
+silenceMediapipeStartupLogs();
 
 const MAX_DURATION_SECONDS = 180;
 const DETECTION_INTERVAL_MS = 500; // ~2x/sec, throttled to keep CPU usage low
 
-// RMS thresholds are approximate/mic-gain-dependent starting points — tune
-// after real-world testing rather than treating these as precise.
-const NOISE_QUIET_THRESHOLD = 0.02;
-const NOISE_MODERATE_THRESHOLD = 0.06;
-
 type Status = "loading" | "ready" | "recording" | "processing" | "done" | "error";
-type NoiseLevel = "quiet" | "moderate" | "noisy";
 
 type FeedbackResult = {
   transcript: string;
@@ -78,6 +76,7 @@ export default function PracticePage() {
   const audioDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const lastDetectionRef = useRef<number>(0);
   const detectionLoopRef = useRef<number | null>(null);
+  const noiseFloorRef = useRef(new NoiseFloorTracker());
 
   useEffect(() => {
     (async () => {
@@ -172,13 +171,7 @@ export default function PracticePage() {
           sumSquares += normalized * normalized;
         }
         const rms = Math.sqrt(sumSquares / audioDataRef.current.length);
-        setNoiseLevel(
-          rms < NOISE_QUIET_THRESHOLD
-            ? "quiet"
-            : rms < NOISE_MODERATE_THRESHOLD
-              ? "moderate"
-              : "noisy"
-        );
+        setNoiseLevel(noiseFloorRef.current.addSample(rms));
       }
     }
     detectionLoopRef.current = requestAnimationFrame(runDetectionLoop);

@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     openai_api_key: str = ""
     anthropic_api_key: str = ""
+    judge0_api_key: str = ""
     cors_origins: list[str] = ["http://localhost:3000"]
 
 

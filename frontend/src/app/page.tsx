@@ -11,12 +11,20 @@ export default function Home() {
           Practice interview responses on camera and get AI feedback on
           content, delivery, and body language.
         </p>
-        <Link
-          href="/questions"
-          className="rounded-full bg-black px-6 py-3 text-sm font-medium text-white transition hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-        >
-          Start Practicing
-        </Link>
+        <div className="flex gap-3">
+          <Link
+            href="/questions"
+            className="rounded-full bg-black px-6 py-3 text-sm font-medium text-white transition hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+          >
+            Start Practicing
+          </Link>
+          <Link
+            href="/coding"
+            className="rounded-full border border-black px-6 py-3 text-sm font-medium text-black transition hover:bg-zinc-100 dark:border-white dark:text-white dark:hover:bg-zinc-900"
+          >
+            Practice Coding
+          </Link>
+        </div>
       </main>
     </div>
   );
