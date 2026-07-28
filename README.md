@@ -3,6 +3,8 @@
 Practice interview responses on camera and get AI-generated feedback on
 content quality, delivery, and body language.
 
+Live at [intervue-red.vercel.app](https://intervue-red.vercel.app).
+
 ## Status
 
 Core pipeline is fully built and working end-to-end:
@@ -41,14 +43,13 @@ Judge0's own sandboxing enforces CPU/time limits, so submitted code (even
 an infinite loop) can't run indefinitely or cost more than a flat
 per-submission rate.
 
-Not yet built: general styling/UX polish (still plain Tailwind defaults)
-and actual deployment (everything below currently only runs locally).
+Not yet built: general styling/UX polish (still plain Tailwind defaults).
 
 ## Structure
 
 ```
-frontend/   Next.js (App Router, TypeScript, Tailwind) — hosted on Vercel
-backend/    FastAPI (Python) — hosted on Render/Railway
+frontend/   Next.js (App Router, TypeScript, Tailwind) — deployed on Vercel
+backend/    FastAPI (Python) — deployed on DigitalOcean App Platform (Docker)
 supabase_schema.sql   Postgres schema + RLS policies + storage bucket setup
 ```
 
@@ -93,3 +94,16 @@ plan, and use the `X-RapidAPI-Key` as `JUDGE0_API_KEY`.
   `backend/app/assets/` and `frontend/public/models/` rather than fetched
   at runtime, so builds don't depend on Google's model storage being
   reachable.
+- Backend deploys via `backend/Dockerfile` rather than a buildpack:
+  mediapipe hard-depends on non-headless `opencv-contrib-python`, and both
+  it and mediapipe's own C bindings dlopen GPU/GLES libraries (`libGL`,
+  `libGLESv2`, `libEGL`) at import time even for CPU-only inference, which
+  aren't present on minimal buildpack images. The Dockerfile installs
+  mesa's software implementations of these directly.
+- Supabase's free tier auto-pauses a project after 7 days with no
+  auth/database activity (not just web traffic — the plain landing page
+  and question list never touch Supabase, only the recording flows do).
+  A paused project fails with DNS-level errors, not a friendly message;
+  restoring it from the dashboard is quick as long as it's caught within
+  Supabase's restore window. The Pro plan ($25/mo) removes auto-pausing
+  entirely if this becomes a real problem post-launch.
