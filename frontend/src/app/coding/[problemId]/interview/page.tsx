@@ -446,7 +446,7 @@ export default function CodingInterviewPage() {
         </div>
 
         {status === "done" && result && (
-          <div className="mx-auto mt-8 flex max-w-3xl flex-col gap-4 text-left">
+          <div className="mx-auto mt-8 grid max-w-5xl grid-cols-1 items-start gap-4 text-left sm:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle>Transcript</CardTitle>

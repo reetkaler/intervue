@@ -400,7 +400,7 @@ export default function PracticePage() {
       )}
 
       {status === "done" && result && (
-        <div className="flex w-full max-w-md flex-col gap-4 text-left">
+        <div className="grid w-full max-w-4xl grid-cols-1 items-start gap-4 text-left sm:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle>Transcript</CardTitle>
