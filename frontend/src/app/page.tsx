@@ -94,26 +94,47 @@ export default function Home() {
               <Badge variant="success">Score 8/10</Badge>
             </div>
             <div className="flex flex-col gap-4 px-6">
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-foreground">Eye contact</span>
-                  <span className="text-muted-foreground">82%</span>
+              <div>
+                <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Body language
+                </p>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-foreground">Eye contact</span>
+                      <span className="text-muted-foreground">82%</span>
+                    </div>
+                    <Progress value={82} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-foreground">Positive expression</span>
+                      <span className="text-muted-foreground">76%</span>
+                    </div>
+                    <Progress value={76} />
+                  </div>
                 </div>
-                <Progress value={82} />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-foreground">Pace</span>
-                  <span className="text-muted-foreground">142 wpm</span>
+              <div>
+                <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Delivery
+                </p>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-foreground">Pace</span>
+                      <span className="text-muted-foreground">142 wpm</span>
+                    </div>
+                    <Progress value={70} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-foreground">Filler words</span>
+                      <span className="text-muted-foreground">3 total</span>
+                    </div>
+                    <Progress value={20} />
+                  </div>
                 </div>
-                <Progress value={70} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-foreground">Filler words</span>
-                  <span className="text-muted-foreground">3 total</span>
-                </div>
-                <Progress value={20} />
               </div>
             </div>
           </Card>
