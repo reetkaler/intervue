@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 type Question = {
   id: number;
@@ -56,11 +55,8 @@ function QuestionGroup({ title, questions }: { title: string; questions: Questio
       <div className="flex flex-col gap-3">
         {questions.map((q) => (
           <Link key={q.id} href={`/practice/${q.id}`}>
-            <Card className="flex-row items-center justify-between gap-4 px-5 py-4 shadow-none transition hover:border-primary/40 hover:shadow-sm">
+            <Card className="px-5 py-4 shadow-none transition hover:border-primary/40 hover:shadow-sm">
               <span className="text-sm text-foreground">{q.text}</span>
-              <Badge variant="outline" className="shrink-0 capitalize">
-                {q.type}
-              </Badge>
             </Card>
           </Link>
         ))}
