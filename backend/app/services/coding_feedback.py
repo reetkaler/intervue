@@ -34,7 +34,7 @@ def score_coding_explanation(
 ) -> CodingFeedback:
     response = client.messages.parse(
         model="claude-sonnet-5",
-        max_tokens=1024,
+        max_tokens=2048,
         output_config={"effort": "low"},
         output_format=CodingFeedback,
         system=SYSTEM_PROMPT,

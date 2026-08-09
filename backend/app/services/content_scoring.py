@@ -16,7 +16,7 @@ SYSTEM_PROMPT = (
 def score_content(question_text: str, transcript: str) -> ContentFeedback:
     response = client.messages.parse(
         model="claude-sonnet-5",
-        max_tokens=1024,
+        max_tokens=2048,
         output_config={"effort": "low"},
         output_format=ContentFeedback,
         system=SYSTEM_PROMPT,
