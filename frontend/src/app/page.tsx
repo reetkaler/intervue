@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,21 +28,7 @@ export default function Home() {
       </section>
 
       <section className="px-6 pb-24">
-        <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-2">
-          <Link href="/questions" className="group">
-            <Card className="items-center justify-center gap-4 py-12 transition hover:border-primary/40 hover:shadow-md">
-              <div className="relative flex size-36 items-center justify-center">
-                <span className="absolute inset-0 animate-ping rounded-full bg-primary/10" />
-                <span className="absolute inset-3 rounded-full bg-gradient-to-br from-primary/20 to-primary/5" />
-                <span className="absolute inset-8 rounded-full bg-gradient-to-br from-primary/40 to-primary/10 blur-sm" />
-                <span className="relative flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition group-hover:scale-105">
-                  <Mic className="size-7" />
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground">Tap to start recording</p>
-            </Card>
-          </Link>
-
+        <div className="mx-auto max-w-md">
           <Card className="gap-4 py-5">
             <div className="flex items-center justify-between px-6">
               <span className="text-sm font-medium text-muted-foreground">
