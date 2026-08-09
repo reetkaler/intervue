@@ -15,12 +15,21 @@ export default function Icon() {
           justifyContent: "center",
           background: "#37322f",
           borderRadius: 7,
-          color: "#f7f5f3",
-          fontSize: 22,
-          fontFamily: "Georgia, serif",
         }}
       >
-        I
+        <svg
+          width="19"
+          height="19"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#f7f5f3"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m22 8-6 4 6 4V8Z" />
+          <rect x="2" y="6" width="14" height="12" rx="2" ry="2" />
+        </svg>
       </div>
     ),
     size
