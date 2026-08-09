@@ -4,9 +4,12 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Editor, { loader } from "@monaco-editor/react";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api";
 import { CaptchaChallenge } from "@/components/CaptchaChallenge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 type CodingProblem = {
   id: number;
@@ -113,31 +116,30 @@ export default function CodingProblemPage() {
 
   if (error && !problem) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 dark:bg-black">
-        <p className="text-sm text-red-600">{error}</p>
+      <div className="flex flex-1 items-center justify-center px-6">
+        <p className="text-sm text-destructive">{error}</p>
       </div>
     );
   }
 
   if (!problem || !monacoReady) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 dark:bg-black">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>
+      <div className="flex flex-1 items-center justify-center px-6">
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          Loading…
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 bg-zinc-50 px-6 py-12 dark:bg-black">
+    <div className="flex flex-1 flex-col gap-6 px-6 py-12">
       <div className="mx-auto w-full max-w-3xl">
-        <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
-          {problem.title}
-        </h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          {problem.description}
-        </p>
+        <h1 className="font-serif text-3xl text-foreground">{problem.title}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{problem.description}</p>
 
-        <div className="mt-6 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="mt-6 overflow-hidden rounded-xl border border-border">
           <Editor
             height="320px"
             defaultLanguage="python"
@@ -149,46 +151,42 @@ export default function CodingProblemPage() {
         </div>
 
         <div className="mt-4 flex gap-3">
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="rounded-full bg-black px-6 py-3 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-          >
+          <Button onClick={handleSubmit} disabled={submitting}>
             {submitting ? "Running…" : "Submit"}
-          </button>
-          <Link
-            href={`/coding/${problemId}/interview`}
-            className="rounded-full border border-black px-6 py-3 text-sm font-medium text-black transition hover:bg-zinc-100 dark:border-white dark:text-white dark:hover:bg-zinc-900"
-          >
-            Record yourself solving this
-          </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={`/coding/${problemId}/interview`}>Record yourself solving this</Link>
+          </Button>
         </div>
 
-        {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
 
         {result && (
-          <div className="mt-6 space-y-3">
-            <h2 className="text-lg font-medium text-black dark:text-zinc-50">
+          <div className="mt-6 flex flex-col gap-3">
+            <h2 className="text-lg font-medium text-foreground">
               {result.all_passed
-                ? `All ${result.test_results.length} test cases passed ✅`
+                ? `All ${result.test_results.length} test cases passed`
                 : `${result.test_results.filter((t) => t.passed).length}/${result.test_results.length} test cases passed`}
             </h2>
             {result.test_results.map((t, i) => (
-              <div
-                key={i}
-                className="rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-800"
-              >
-                <p className="font-mono text-black dark:text-zinc-50">
-                  {t.passed ? "✅" : "❌"} {t.call}
-                </p>
-                <p className="mt-1 text-zinc-600 dark:text-zinc-400">{t.status}</p>
-                {!t.passed && (t.stdout || t.stderr) && (
-                  <pre className="mt-2 overflow-x-auto rounded bg-zinc-100 p-2 text-xs text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-                    {t.stderr || t.stdout}
-                  </pre>
-                )}
-              </div>
+              <Card key={i} className="gap-1 py-3 shadow-none">
+                <div className="flex items-center gap-2 px-4 font-mono text-sm text-foreground">
+                  {t.passed ? (
+                    <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+                  ) : (
+                    <XCircle className="size-4 shrink-0 text-destructive" />
+                  )}
+                  {t.call}
+                </div>
+                <div className="px-4">
+                  <p className="text-sm text-muted-foreground">{t.status}</p>
+                  {!t.passed && (t.stdout || t.stderr) && (
+                    <pre className="mt-2 overflow-x-auto rounded-md bg-muted p-2 text-xs text-muted-foreground">
+                      {t.stderr || t.stdout}
+                    </pre>
+                  )}
+                </div>
+              </Card>
             ))}
           </div>
         )}

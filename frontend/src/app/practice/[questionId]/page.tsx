@@ -3,11 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
+import { Video, VideoOff, Volume2, VolumeX, Volume1, Loader2, CheckCircle2, ArrowUpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api";
 import { silenceMediapipeStartupLogs } from "@/lib/suppressMediapipeNoise";
 import { NoiseFloorTracker, type NoiseLevel } from "@/lib/noiseFloor";
 import { CaptchaChallenge } from "@/components/CaptchaChallenge";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 silenceMediapipeStartupLogs();
 
@@ -306,8 +310,8 @@ export default function PracticePage() {
   const showLiveIndicators = status === "ready" || status === "recording";
 
   return (
-    <div className="flex flex-col flex-1 items-center justify-center gap-6 bg-zinc-50 px-6 py-12 dark:bg-black">
-      <h1 className="max-w-md text-center text-2xl font-semibold text-black dark:text-zinc-50">
+    <div className="flex flex-col flex-1 items-center justify-center gap-6 px-6 py-12">
+      <h1 className="max-w-md text-center font-serif text-3xl text-foreground">
         {questionText ?? `Question ${questionId}`}
       </h1>
 
@@ -317,129 +321,166 @@ export default function PracticePage() {
         ref={videoRef}
         autoPlay
         muted
-        className="w-full max-w-md rounded-lg bg-zinc-900"
+        className="w-full max-w-md rounded-xl bg-foreground"
       />
 
       {showLiveIndicators && (
-        <div className="flex gap-2 text-xs">
-          <span className="rounded-full bg-zinc-200 px-3 py-1 dark:bg-zinc-800">
+        <div className="flex gap-2">
+          <Badge
+            variant={faceDetected === null ? "outline" : faceDetected ? "success" : "warning"}
+          >
+            {faceDetected === null ? (
+              <Loader2 className="animate-spin" />
+            ) : faceDetected ? (
+              <Video />
+            ) : (
+              <VideoOff />
+            )}
             {faceDetected === null
-              ? "⏳ Loading face detection…"
+              ? "Loading face detection…"
               : faceDetected
-                ? "🟢 Face detected"
-                : "🟠 No face detected — center yourself in frame"}
-          </span>
-          <span className="rounded-full bg-zinc-200 px-3 py-1 dark:bg-zinc-800">
+                ? "Face detected"
+                : "No face detected"}
+          </Badge>
+          <Badge
+            variant={
+              noiseLevel === null
+                ? "outline"
+                : noiseLevel === "quiet"
+                  ? "success"
+                  : noiseLevel === "moderate"
+                    ? "warning"
+                    : "destructive"
+            }
+          >
+            {noiseLevel === null ? (
+              <Loader2 className="animate-spin" />
+            ) : noiseLevel === "quiet" ? (
+              <Volume2 />
+            ) : noiseLevel === "moderate" ? (
+              <Volume1 />
+            ) : (
+              <VolumeX />
+            )}
             {noiseLevel === null
-              ? "⏳ Checking noise level…"
+              ? "Checking noise level…"
               : noiseLevel === "quiet"
-                ? "🟢 Quiet"
+                ? "Quiet"
                 : noiseLevel === "moderate"
-                  ? "🟡 Somewhat noisy"
-                  : "🔴 Too noisy — find a quieter spot"}
-          </span>
+                  ? "Somewhat noisy"
+                  : "Too noisy"}
+          </Badge>
         </div>
       )}
 
       {status === "ready" && (
-        <button
-          type="button"
-          onClick={startRecording}
-          className="rounded-full bg-black px-6 py-3 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-        >
+        <Button onClick={startRecording} size="lg">
           Start Recording
-        </button>
+        </Button>
       )}
 
       {status === "recording" && (
         <div className="flex flex-col items-center gap-3">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            {secondsLeft}s left
-          </p>
-          <button
-            type="button"
-            onClick={stopRecording}
-            className="rounded-full bg-red-600 px-6 py-3 text-sm font-medium text-white hover:bg-red-700"
-          >
+          <p className="text-sm text-muted-foreground">{secondsLeft}s left</p>
+          <Button onClick={stopRecording} size="lg" variant="destructive">
             Stop
-          </button>
+          </Button>
         </div>
       )}
 
       {status === "processing" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
           Uploading and transcribing…
         </p>
       )}
 
       {status === "error" && (
-        <p className="max-w-md text-center text-sm text-red-600">{error}</p>
+        <p className="max-w-md text-center text-sm text-destructive">{error}</p>
       )}
 
       {status === "done" && result && (
-        <div className="w-full max-w-md space-y-4 rounded-lg border border-zinc-200 p-4 text-left dark:border-zinc-800">
-          <div>
-            <h2 className="font-medium text-black dark:text-zinc-50">Transcript</h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">{result.transcript}</p>
-          </div>
-          <div>
-            <h2 className="font-medium text-black dark:text-zinc-50">Delivery</h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              {result.delivery.words_per_minute} words/min ·{" "}
-              {result.delivery.filler_word_count} filler words
-            </p>
-          </div>
+        <div className="flex w-full max-w-md flex-col gap-4 text-left">
+          <Card>
+            <CardHeader>
+              <CardTitle>Transcript</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">{result.transcript}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Delivery</CardTitle>
+            </CardHeader>
+            <CardContent className="flex gap-2">
+              <Badge variant="secondary">{result.delivery.words_per_minute} words/min</Badge>
+              <Badge variant="secondary">{result.delivery.filler_word_count} filler words</Badge>
+            </CardContent>
+          </Card>
+
           {result.content && (
-            <div>
-              <h2 className="font-medium text-black dark:text-zinc-50">
-                Content — {result.content.score}/10
-              </h2>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {result.content.summary}
-              </p>
-              <p className="mt-2 text-sm font-medium text-black dark:text-zinc-50">
-                Strengths
-              </p>
-              <ul className="list-disc pl-5 text-sm text-zinc-600 dark:text-zinc-400">
-                {result.content.strengths.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-              <p className="mt-2 text-sm font-medium text-black dark:text-zinc-50">
-                Improvements
-              </p>
-              <ul className="list-disc pl-5 text-sm text-zinc-600 dark:text-zinc-400">
-                {result.content.improvements.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-            </div>
+            <Card>
+              <CardHeader className="flex-row items-center justify-between">
+                <CardTitle>Content</CardTitle>
+                <Badge variant="success">{result.content.score}/10</Badge>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <p className="text-sm text-muted-foreground">{result.content.summary}</p>
+                <div>
+                  <p className="mb-1 text-sm font-medium text-foreground">Strengths</p>
+                  <ul className="flex flex-col gap-1">
+                    {result.content.strengths.map((s, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="mb-1 text-sm font-medium text-foreground">Improvements</p>
+                  <ul className="flex flex-col gap-1">
+                    {result.content.improvements.map((s, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <ArrowUpCircle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
           )}
+
           {result.body_language && (
-            <div>
-              <h2 className="font-medium text-black dark:text-zinc-50">
-                Body Language
-              </h2>
-              {result.body_language.face_detected ? (
-                <ul className="list-disc pl-5 text-sm text-zinc-600 dark:text-zinc-400">
-                  <li>Facing the camera {result.body_language.eye_contact_percent}% of the time</li>
-                  <li>
-                    Positive/engaged expression {result.body_language.positive_expression_percent}%
-                    of the time
-                  </li>
-                  <li>
-                    Hands visible {result.body_language.hands_visible_percent}% of the time
-                    {result.body_language.hands_visible_percent > 0 &&
-                      ` — ${gestureActivityLabel(result.body_language.gesture_activity_score)}`}
-                  </li>
-                </ul>
-              ) : (
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  No face reliably detected in the recording — point the camera at
-                  your face for this analysis to work.
-                </p>
-              )}
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Body Language</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {result.body_language.face_detected ? (
+                  <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
+                    <li>Facing the camera {result.body_language.eye_contact_percent}% of the time</li>
+                    <li>
+                      Positive/engaged expression {result.body_language.positive_expression_percent}%
+                      of the time
+                    </li>
+                    <li>
+                      Hands visible {result.body_language.hands_visible_percent}% of the time
+                      {result.body_language.hands_visible_percent > 0 &&
+                        ` — ${gestureActivityLabel(result.body_language.gesture_activity_score)}`}
+                    </li>
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No face reliably detected in the recording — point the camera at
+                    your face for this analysis to work.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           )}
         </div>
       )}

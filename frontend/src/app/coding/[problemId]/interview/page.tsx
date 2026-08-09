@@ -4,11 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Editor, { loader } from "@monaco-editor/react";
 import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
+import { Video, VideoOff, Volume2, VolumeX, Volume1, Loader2, CheckCircle2, XCircle, ArrowUpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api";
 import { silenceMediapipeStartupLogs } from "@/lib/suppressMediapipeNoise";
 import { NoiseFloorTracker, type NoiseLevel } from "@/lib/noiseFloor";
 import { CaptchaChallenge } from "@/components/CaptchaChallenge";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 silenceMediapipeStartupLogs();
 
@@ -327,23 +331,24 @@ export default function CodingInterviewPage() {
 
   if (!problem || !monacoReady) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 dark:bg-black">
+      <div className="flex flex-1 items-center justify-center px-6">
         {error ? (
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-destructive">{error}</p>
         ) : (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Loading…
+          </p>
         )}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 bg-zinc-50 px-6 py-10 dark:bg-black">
+    <div className="flex flex-1 flex-col gap-6 px-6 py-10">
       <div className="mx-auto w-full max-w-6xl">
-        <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">{problem.title}</h1>
-        <p className="mt-2 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">
-          {problem.description}
-        </p>
+        <h1 className="font-serif text-3xl text-foreground">{problem.title}</h1>
+        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{problem.description}</p>
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
           <div className="flex flex-col items-center gap-4">
@@ -351,63 +356,84 @@ export default function CodingInterviewPage() {
               ref={videoRef}
               autoPlay
               muted
-              className="w-full max-w-xs rounded-lg bg-zinc-900"
+              className="w-full max-w-xs rounded-xl bg-foreground"
             />
 
             {showLiveIndicators && (
-              <div className="flex flex-wrap justify-center gap-2 text-xs">
-                <span className="rounded-full bg-zinc-200 px-3 py-1 dark:bg-zinc-800">
+              <div className="flex flex-wrap justify-center gap-2">
+                <Badge
+                  variant={faceDetected === null ? "outline" : faceDetected ? "success" : "warning"}
+                >
+                  {faceDetected === null ? (
+                    <Loader2 className="animate-spin" />
+                  ) : faceDetected ? (
+                    <Video />
+                  ) : (
+                    <VideoOff />
+                  )}
                   {faceDetected === null
-                    ? "⏳ Loading face detection…"
+                    ? "Loading face detection…"
                     : faceDetected
-                      ? "🟢 Face detected"
-                      : "🟠 No face detected"}
-                </span>
-                <span className="rounded-full bg-zinc-200 px-3 py-1 dark:bg-zinc-800">
+                      ? "Face detected"
+                      : "No face detected"}
+                </Badge>
+                <Badge
+                  variant={
+                    noiseLevel === null
+                      ? "outline"
+                      : noiseLevel === "quiet"
+                        ? "success"
+                        : noiseLevel === "moderate"
+                          ? "warning"
+                          : "destructive"
+                  }
+                >
+                  {noiseLevel === null ? (
+                    <Loader2 className="animate-spin" />
+                  ) : noiseLevel === "quiet" ? (
+                    <Volume2 />
+                  ) : noiseLevel === "moderate" ? (
+                    <Volume1 />
+                  ) : (
+                    <VolumeX />
+                  )}
                   {noiseLevel === null
-                    ? "⏳ Checking noise…"
+                    ? "Checking noise…"
                     : noiseLevel === "quiet"
-                      ? "🟢 Quiet"
+                      ? "Quiet"
                       : noiseLevel === "moderate"
-                        ? "🟡 Somewhat noisy"
-                        : "🔴 Too noisy"}
-                </span>
+                        ? "Somewhat noisy"
+                        : "Too noisy"}
+                </Badge>
               </div>
             )}
 
             {status === "ready" && (
-              <button
-                type="button"
-                onClick={startRecording}
-                className="rounded-full bg-black px-6 py-3 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-              >
+              <Button onClick={startRecording} size="lg">
                 Start Recording
-              </button>
+              </Button>
             )}
 
             {status === "recording" && (
               <div className="flex flex-col items-center gap-3">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">{secondsLeft}s left</p>
-                <button
-                  type="button"
-                  onClick={stopRecording}
-                  className="rounded-full bg-red-600 px-6 py-3 text-sm font-medium text-white hover:bg-red-700"
-                >
+                <p className="text-sm text-muted-foreground">{secondsLeft}s left</p>
+                <Button onClick={stopRecording} size="lg" variant="destructive">
                   Stop
-                </button>
+                </Button>
               </div>
             )}
 
             {status === "processing" && (
-              <p className="text-center text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="flex items-center gap-2 text-center text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
                 Transcribing, running your code, and scoring…
               </p>
             )}
 
-            {status === "error" && <p className="text-center text-sm text-red-600">{error}</p>}
+            {status === "error" && <p className="text-center text-sm text-destructive">{error}</p>}
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+          <div className="overflow-hidden rounded-xl border border-border">
             <Editor
               height="420px"
               defaultLanguage="python"
@@ -420,49 +446,71 @@ export default function CodingInterviewPage() {
         </div>
 
         {status === "done" && result && (
-          <div className="mx-auto mt-8 max-w-3xl space-y-4 rounded-lg border border-zinc-200 p-4 text-left dark:border-zinc-800">
-            <div>
-              <h2 className="font-medium text-black dark:text-zinc-50">Transcript</h2>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">{result.transcript}</p>
-            </div>
+          <div className="mx-auto mt-8 flex max-w-3xl flex-col gap-4 text-left">
+            <Card>
+              <CardHeader>
+                <CardTitle>Transcript</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">{result.transcript}</p>
+              </CardContent>
+            </Card>
 
-            <div>
-              <h2 className="font-medium text-black dark:text-zinc-50">
-                Test results —{" "}
-                {result.test_results.test_results.filter((t) => t.passed).length}/
-                {result.test_results.test_results.length} passed
-              </h2>
-              <ul className="text-sm text-zinc-600 dark:text-zinc-400">
-                {result.test_results.test_results.map((t, i) => (
-                  <li key={i} className="font-mono">
-                    {t.passed ? "✅" : "❌"} {t.call}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  Test results —{" "}
+                  {result.test_results.test_results.filter((t) => t.passed).length}/
+                  {result.test_results.test_results.length} passed
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="flex flex-col gap-1">
+                  {result.test_results.test_results.map((t, i) => (
+                    <li key={i} className="flex items-center gap-2 font-mono text-sm text-muted-foreground">
+                      {t.passed ? (
+                        <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+                      ) : (
+                        <XCircle className="size-4 shrink-0 text-destructive" />
+                      )}
+                      {t.call}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
 
-            <div>
-              <h2 className="font-medium text-black dark:text-zinc-50">
-                Interview Feedback — {result.score_feedback.score}/10
-              </h2>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {result.score_feedback.summary}
-              </p>
-              <p className="mt-2 text-sm font-medium text-black dark:text-zinc-50">Strengths</p>
-              <ul className="list-disc pl-5 text-sm text-zinc-600 dark:text-zinc-400">
-                {result.score_feedback.strengths.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-              <p className="mt-2 text-sm font-medium text-black dark:text-zinc-50">
-                Improvements
-              </p>
-              <ul className="list-disc pl-5 text-sm text-zinc-600 dark:text-zinc-400">
-                {result.score_feedback.improvements.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-            </div>
+            <Card>
+              <CardHeader className="flex-row items-center justify-between">
+                <CardTitle>Interview Feedback</CardTitle>
+                <Badge variant="success">{result.score_feedback.score}/10</Badge>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <p className="text-sm text-muted-foreground">{result.score_feedback.summary}</p>
+                <div>
+                  <p className="mb-1 text-sm font-medium text-foreground">Strengths</p>
+                  <ul className="flex flex-col gap-1">
+                    {result.score_feedback.strengths.map((s, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="mb-1 text-sm font-medium text-foreground">Improvements</p>
+                  <ul className="flex flex-col gap-1">
+                    {result.score_feedback.improvements.map((s, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <ArrowUpCircle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>

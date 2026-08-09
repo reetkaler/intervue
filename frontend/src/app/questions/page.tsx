@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 type Question = {
   id: number;
@@ -29,14 +31,12 @@ export default function QuestionsPage() {
   const technical = questions?.filter((q) => q.type === "technical") ?? [];
 
   return (
-    <div className="flex flex-1 flex-col items-center gap-10 bg-zinc-50 px-6 py-16 dark:bg-black">
-      <h1 className="text-3xl font-semibold text-black dark:text-zinc-50">
-        Pick a question
-      </h1>
+    <div className="flex flex-1 flex-col items-center gap-10 px-6 py-16">
+      <h1 className="font-serif text-4xl text-foreground">Pick a question</h1>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       {!questions && !error && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Loading questions…</p>
+        <p className="text-sm text-muted-foreground">Loading questions…</p>
       )}
 
       {questions && (
@@ -52,19 +52,19 @@ export default function QuestionsPage() {
 function QuestionGroup({ title, questions }: { title: string; questions: Question[] }) {
   return (
     <section>
-      <h2 className="mb-3 text-lg font-medium text-black dark:text-zinc-50">{title}</h2>
-      <ul className="flex flex-col gap-2">
+      <h2 className="mb-3 text-lg font-medium text-foreground">{title}</h2>
+      <div className="flex flex-col gap-3">
         {questions.map((q) => (
-          <li key={q.id}>
-            <Link
-              href={`/practice/${q.id}`}
-              className="block rounded-lg border border-zinc-200 px-4 py-3 text-sm text-black transition hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-50 dark:hover:border-zinc-600"
-            >
-              {q.text}
-            </Link>
-          </li>
+          <Link key={q.id} href={`/practice/${q.id}`}>
+            <Card className="flex-row items-center justify-between gap-4 px-5 py-4 shadow-none transition hover:border-primary/40 hover:shadow-sm">
+              <span className="text-sm text-foreground">{q.text}</span>
+              <Badge variant="outline" className="shrink-0 capitalize">
+                {q.type}
+              </Badge>
+            </Card>
+          </Link>
         ))}
-      </ul>
+      </div>
     </section>
   );
 }
