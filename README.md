@@ -3,7 +3,7 @@
 Practice interview responses on camera and get AI-generated feedback on
 content quality, delivery, and body language.
 
-Live at [intervue-red.vercel.app](https://intervue-red.vercel.app).
+Live at [inter-vue.com](https://inter-vue.com).
 
 ## Status
 
